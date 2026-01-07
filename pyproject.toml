@@ -1,0 +1,16 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.11", "numpy>=1.23"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "mass-assignment"
+version = "0.1.0"
+description = "Single-process mass assignment (NGP/CIC/TSC/PCS) with OpenMP"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["numpy"]
+license = "MIT"
+license-files = ["LICENSE"]
+
+[tool.scikit-build]
+wheel.packages = ["mass_assignment"]
