@@ -1,6 +1,6 @@
 # mass_assignment
 
-A small Python extension module for single-process mass assignment on a 3D mesh with optional OpenMP parallelization.
+A Python extension module for single-process mass assignment on a 3D mesh with OpenMP parallelization.
 
 This package provides:
 - `dens`: mass density field
