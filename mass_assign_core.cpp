@@ -383,9 +383,8 @@ enum class OutKind { F32, F64 };
 
 static inline OutKind parse_out_kind(const std::string &dtype)
 {
-  if(dtype == "f4" || dtype == "float32") return OutKind::F32;
-  if(dtype == "f8" || dtype == "float64") return OutKind::F64;
-  throw std::runtime_error("dtype must be 'f4'/'float32' or 'f8'/'float64'");
+  if(dtype == "f4") return OutKind::F32;
+  if(dtype == "f8") return OutKind::F64;
 }
 
 template <typename T>
