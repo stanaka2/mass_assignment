@@ -1,5 +1,5 @@
 import numpy as np
-from . import _mass_assign_core as mac
+from . import _binding
 
 
 def method_type(method):
@@ -12,26 +12,6 @@ def method_type(method):
         if method in method_map.values():
             return method
     raise ValueError("method must be one of 'NGP', 'CIC', 'TSC', 'PCS' or their corresponding integer codes 1,2,3,4")
-
-
-def _parse_out_dtype(dtype):
-    if isinstance(dtype, str):
-        s = dtype.strip().lower()
-        if s in ("f4", "float32"):
-            return "f4"
-        if s in ("f8", "float64"):
-            return "f8"
-
-    try:
-        dt = np.dtype(dtype)
-    except Exception as e:
-        raise TypeError("dtype must be 'f4'/'float32' or 'f8'/'float64' or np.float32/np.float64") from e
-
-    if dt == np.dtype(np.float32):
-        return "f4"
-    if dt == np.dtype(np.float64):
-        return "f8"
-    raise TypeError("dtype must be 'f4'/'float32' or 'f8'/'float64' or np.float32/np.float64")
 
 
 def _normalize_pv(a, dtype):
@@ -52,33 +32,16 @@ def _normalize_m(mass, n, dtype):
     return np.require(m, requirements=["C_CONTIGUOUS"])
 
 
-def dens(pos, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="f4"):
+def dens(pos, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)
     n = pos.shape[0]
     mass = _normalize_m(mass, n, dtype=in_dtype)
-
     method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
-    return mac.dens(pos, mass, lbox, nmesh, method, nthreads, dtype)
+    return _binding.dens(pos, mass, lbox, nmesh, method, nthreads)
 
 
-def velc(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="f4"):
-    in_dtype = np.asarray(pos).dtype
-    pos = _normalize_pv(pos, dtype=in_dtype)
-    vel = _normalize_pv(vel, dtype=in_dtype)
-
-    if vel.shape[0] != pos.shape[0]: raise ValueError("vel must have shape (N,3) and match pos")
-
-    n = pos.shape[0]
-    mass = _normalize_m(mass, n, dtype=in_dtype)
-
-    method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
-    return mac.velc(pos, vel, mass, lbox, nmesh, method, nthreads, dtype)
-
-
-def velc_norm(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="f4"):
+def velc(pos, vel, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)
     vel = _normalize_pv(vel, dtype=in_dtype)
@@ -87,13 +50,11 @@ def velc_norm(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype=
 
     n = pos.shape[0]
     mass = _normalize_m(mass, n, dtype=in_dtype)
-
     method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
-    return mac.velc_norm(pos, vel, mass, lbox, nmesh, method, nthreads, dtype)
+    return _binding.velc(pos, vel, mass, lbox, nmesh, method, nthreads)
 
 
-def sigma(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="f4"):
+def velc_norm(pos, vel, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)
     vel = _normalize_pv(vel, dtype=in_dtype)
@@ -102,13 +63,11 @@ def sigma(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="f4"
 
     n = pos.shape[0]
     mass = _normalize_m(mass, n, dtype=in_dtype)
-
     method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
-    return mac.sigma(pos, vel, mass, lbox, nmesh, method, nthreads, dtype)
+    return _binding.velc_norm(pos, vel, mass, lbox, nmesh, method, nthreads)
 
 
-def sigma_norm(pos, vel, lbox, nmesh, method="TSC", norm_mode="diag_norm", mass=None, nthreads=0, dtype="f4"):
+def sigma(pos, vel, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)
     vel = _normalize_pv(vel, dtype=in_dtype)
@@ -117,14 +76,37 @@ def sigma_norm(pos, vel, lbox, nmesh, method="TSC", norm_mode="diag_norm", mass=
 
     n = pos.shape[0]
     mass = _normalize_m(mass, n, dtype=in_dtype)
-
     method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
+    return _binding.sigma(pos, vel, mass, lbox, nmesh, method, nthreads)
+
+
+def sigma_norm(pos, vel, nmesh, lbox=1.0, method="TSC", norm_mode="diag_norm", mass=None, nthreads=0):
+    in_dtype = np.asarray(pos).dtype
+    pos = _normalize_pv(pos, dtype=in_dtype)
+    vel = _normalize_pv(vel, dtype=in_dtype)
+
+    if vel.shape[0] != pos.shape[0]: raise ValueError("vel must have shape (N,3) and match pos")
+
+    n = pos.shape[0]
+    mass = _normalize_m(mass, n, dtype=in_dtype)
+    method = method_type(method)
     norm_mode = 1 if norm_mode == "diag_norm" else 0
-    return mac.sigma_norm(pos, vel, mass, lbox, nmesh, method, norm_mode, nthreads, dtype)
+    return _binding.sigma_norm(pos, vel, mass, lbox, nmesh, method, norm_mode, nthreads)
 
 
-def skewness(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="f4"):
+def skewness(pos, vel, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
+    in_dtype = np.asarray(pos).dtype
+    pos = _normalize_pv(pos, dtype=in_dtype)
+    vel = _normalize_pv(vel, dtype=in_dtype)
+    if vel.shape[0] != pos.shape[0]: raise ValueError("vel must have shape (N,3) and match pos")
+
+    n = pos.shape[0]
+    mass = _normalize_m(mass, n, dtype=in_dtype)
+    method = method_type(method)
+    return _binding.skewness(pos, vel, mass, lbox, nmesh, method, nthreads)
+
+
+def skewness_norm(pos, vel, nmesh, lbox=1.0, method="TSC", norm_mode="diag_norm", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)
     vel = _normalize_pv(vel, dtype=in_dtype)
@@ -134,26 +116,11 @@ def skewness(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="
     mass = _normalize_m(mass, n, dtype=in_dtype)
 
     method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
-    return mac.skewness(pos, vel, mass, lbox, nmesh, method, nthreads, dtype)
-
-
-def skewness_norm(pos, vel, lbox, nmesh, method="TSC", norm_mode="diag_norm", mass=None, nthreads=0, dtype="f4"):
-    in_dtype = np.asarray(pos).dtype
-    pos = _normalize_pv(pos, dtype=in_dtype)
-    vel = _normalize_pv(vel, dtype=in_dtype)
-    if vel.shape[0] != pos.shape[0]: raise ValueError("vel must have shape (N,3) and match pos")
-
-    n = pos.shape[0]
-    mass = _normalize_m(mass, n, dtype=in_dtype)
-
-    method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
     norm_mode = 1 if norm_mode == "diag_norm" else 0
-    return mac.skewness_norm(pos, vel, mass, lbox, nmesh, method, norm_mode, nthreads, dtype)
+    return _binding.skewness_norm(pos, vel, mass, lbox, nmesh, method, norm_mode, nthreads)
 
 
-def kurtosis(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="f4"):
+def kurtosis(pos, vel, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)
     vel = _normalize_pv(vel, dtype=in_dtype)
@@ -161,13 +128,11 @@ def kurtosis(pos, vel, lbox, nmesh, method="TSC", mass=None, nthreads=0, dtype="
 
     n = pos.shape[0]
     mass = _normalize_m(mass, n, dtype=in_dtype)
-
     method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
-    return mac.kurtosis(pos, vel, mass, lbox, nmesh, method, nthreads, dtype)
+    return _binding.kurtosis(pos, vel, mass, lbox, nmesh, method, nthreads)
 
 
-def kurtosis_norm(pos, vel, lbox, nmesh, method="TSC", norm_mode="diag_norm", mass=None, nthreads=0, dtype="f4"):
+def kurtosis_norm(pos, vel, nmesh, lbox=1.0, method="TSC", norm_mode="diag_norm", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)
     vel = _normalize_pv(vel, dtype=in_dtype)
@@ -175,8 +140,17 @@ def kurtosis_norm(pos, vel, lbox, nmesh, method="TSC", norm_mode="diag_norm", ma
 
     n = pos.shape[0]
     mass = _normalize_m(mass, n, dtype=in_dtype)
-
     method = method_type(method)
-    dtype = _parse_out_dtype(dtype)
     norm_mode = 1 if norm_mode == "diag_norm" else 0
-    return mac.kurtosis_norm(pos, vel, mass, lbox, nmesh, method, norm_mode, nthreads, dtype)
+    return _binding.kurtosis_norm(pos, vel, mass, lbox, nmesh, method, norm_mode, nthreads)
+
+
+def mesh_to_ptcl(pos, mesh, lbox=1.0, method="TSC", nthreads=0):
+    in_dtype = np.asarray(pos).dtype
+    pos = _normalize_pv(pos, dtype=in_dtype)
+    method = method_type(method)
+    return _binding.mesh_to_ptcl(pos, mesh, lbox, method, nthreads)
+
+
+def mesh_diff(mesh, lbox=1.0, order=4, nthreads=0):
+    return _binding.mesh_diff(mesh, lbox, order, nthreads)

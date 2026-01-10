@@ -14,7 +14,6 @@ A Python library for 3D mass assignment and velocity moment estimation using C++
 pip install mass-assignment
 ```
 
-
 ## Usage
 
 1. Density Field
@@ -30,7 +29,7 @@ mass = np.random.uniform(0.5, 1.5, 1000000)
 
 # Compute density
 # lbox: Box size, nmesh: Grid resolution
-grid_density = ma.dens(pos, lbox=100.0, nmesh=128, method="TSC", mass=mass)
+grid_density = ma.dens(pos, nmesh=128, lbox=100.0, method="TSC", mass=mass)
 ```
 
 2. Velocity Dispersion Field
@@ -46,7 +45,27 @@ vel = np.random.normal(0, 10, (1000000, 3))
 
 # Returns an array of shape (nmesh, nmesh, nmesh, 6)
 # Component order: xx, xy, xz, yy, yz, zz
-dispersion_tensor = ma.sigma_norm(pos, vel, lbox=100.0, nmesh=128, method="TSC")
+dispersion_tensor = ma.sigma_norm(pos, vel, nmesh=128, lbox=100.0, method="TSC")
+```
+
+3. Sample a mesh field at particle positions
+
+- `mesh_to_ptcl` interpolates a scalar field defined on a regular 3D grid to arbitrary particle positions.
+
+```python
+import numpy as np
+import mass_assignment as ma
+
+nmesh = 128
+lbox = 1.0
+
+# Example scalar field on the mesh (nmesh, nmesh, nmesh)
+mesh = np.random.randn(nmesh, nmesh, nmesh).astype(np.float32)
+
+# Particle positions (N,3) in [0, lbox)
+pos = np.random.rand(200000, 3).astype(np.float32) * lbox
+val = ma.mesh_to_ptcl(pos, mesh, lbox=lbox, method="TSC", nthreads=0)
+print(val.shape)  # (N,)
 ```
 
 
@@ -62,9 +81,6 @@ dispersion_tensor = ma.sigma_norm(pos, vel, lbox=100.0, nmesh=128, method="TSC")
 - Mass (`mass`)
   - If mass is set to None (default), the library assumes uniform mass (weight = 1.0 for every particle).
 
-- Data Precision (`dtype`)
-  - `f4` or np.float32 (Default): Memory efficient and faster.
-  - `f8` or np.float64: Recommended for higher numerical precision.
 
 - Parallelization (`nthreads`)
   - 0 (Default): Automatically uses all available CPU threads via OpenMP.
