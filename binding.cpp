@@ -24,7 +24,7 @@ static void bind_dtype(py::module_ &m)
   m.def(
       "dens",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> mass, double lbox, int nmesh,
-         int method, int nthreads) -> py::object {
+         int method, int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -33,11 +33,26 @@ static void bind_dtype(py::module_ &m)
       py::arg("pos"), py::arg("mass"), py::arg("lbox"), py::arg("nmesh"), py::arg("method") = 3,
       py::arg("nthreads") = 0);
 
+  // --- 1.1 Scalar ---
+  m.def(
+      "scalar",
+      [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> scalar,
+         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method,
+         int nthreads) -> py::array_t<float> {
+        int64_t n = pos.shape(0);
+        assert(pos.shape(1) == 3);
+
+        return scalar_impl<T, float>(pos.data(), scalar.data(), mass.data(), n, lbox, nmesh, method, nthreads);
+      },
+      py::arg("pos"), py::arg("scalar"), py::arg("mass"), py::arg("lbox"), py::arg("nmesh"), py::arg("method") = 3,
+      py::arg("nthreads") = 0);
+
   // --- 2. Velocity ---
   m.def(
       "velc",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> vel,
-         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method, int nthreads) -> py::object {
+         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method,
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -49,7 +64,8 @@ static void bind_dtype(py::module_ &m)
   m.def(
       "velc_norm",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> vel,
-         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method, int nthreads) -> py::object {
+         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method,
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -62,7 +78,8 @@ static void bind_dtype(py::module_ &m)
   m.def(
       "sigma",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> vel,
-         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method, int nthreads) -> py::object {
+         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method,
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -75,7 +92,7 @@ static void bind_dtype(py::module_ &m)
       "sigma_norm",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> vel,
          py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method, int norm_mode,
-         int nthreads) -> py::object {
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -89,7 +106,8 @@ static void bind_dtype(py::module_ &m)
   m.def(
       "skewness",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> vel,
-         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method, int nthreads) -> py::object {
+         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method,
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -102,7 +120,7 @@ static void bind_dtype(py::module_ &m)
       "skewness_norm",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> vel,
          py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method, int norm_mode,
-         int nthreads) -> py::object {
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -116,7 +134,8 @@ static void bind_dtype(py::module_ &m)
   m.def(
       "kurtosis",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> vel,
-         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method, int nthreads) -> py::object {
+         py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method,
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -129,7 +148,7 @@ static void bind_dtype(py::module_ &m)
       "kurtosis_norm",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<T, py::array::c_style> vel,
          py::array_t<T, py::array::c_style> mass, double lbox, int nmesh, int method, int norm_mode,
-         int nthreads) -> py::object {
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         assert(pos.shape(1) == 3);
 
@@ -142,7 +161,7 @@ static void bind_dtype(py::module_ &m)
   m.def(
       "mesh_to_ptcl",
       [](py::array_t<T, py::array::c_style> pos, py::array_t<float, py::array::c_style> mesh, double lbox, int method,
-         int nthreads) -> py::object {
+         int nthreads) -> py::array_t<float> {
         int64_t n = pos.shape(0);
         int nmesh = mesh.shape(0);
         assert(pos.shape(1) == 3);
@@ -154,7 +173,7 @@ static void bind_dtype(py::module_ &m)
 
   m.def(
       "mesh_diff",
-      [](py::array_t<float, py::array::c_style> mesh, double lbox, int order, int nthreads) -> py::object {
+      [](py::array_t<float, py::array::c_style> mesh, double lbox, int order, int nthreads) -> py::array_t<float> {
         int nmesh = mesh.shape(0);
         assert(mesh.ndim() == 3);
         return mesh_diff_impl<float>(mesh.data(), nmesh, lbox, order, nthreads);

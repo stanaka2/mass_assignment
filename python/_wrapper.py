@@ -32,6 +32,13 @@ def _normalize_m(mass, n, dtype):
     return np.require(m, requirements=["C_CONTIGUOUS"])
 
 
+def _normalize_s(scalar, n, dtype):
+    s = np.asarray(scalar, dtype=dtype)
+    if s.ndim != 1 or s.shape[0] != n:
+        raise ValueError("scalar must have shape (N,) and match pos")
+    return np.require(s, requirements=["C_CONTIGUOUS"])
+
+
 def dens(pos, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)
@@ -41,6 +48,18 @@ def dens(pos, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
     return _binding.dens(pos, mass, lbox, nmesh, method, nthreads)
 
 
+# for non-positive scalar field
+def scalar(pos, scalar, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
+    in_dtype = np.asarray(pos).dtype
+    pos = _normalize_pv(pos, dtype=in_dtype)
+    n = pos.shape[0]
+    scalar = _normalize_s(scalar, n, dtype=in_dtype)
+    mass = _normalize_m(mass, n, dtype=in_dtype)
+    method = method_type(method)
+    return _binding.scalar(pos, scalar, mass, lbox, nmesh, method, nthreads)
+
+
+# like a scalar[3]
 def velc(pos, vel, nmesh, lbox=1.0, method="TSC", mass=None, nthreads=0):
     in_dtype = np.asarray(pos).dtype
     pos = _normalize_pv(pos, dtype=in_dtype)

@@ -19,6 +19,7 @@ namespace py = pybind11;
 
 template <typename OutT>
 struct Moments {
+  OutT *s = nullptr;           // Scalar field
   OutT *m0 = nullptr;          // Mass/Density
   std::array<OutT *, 3> m1{};  // Momentum (x, y, z)
   std::array<OutT *, 6> m2{};  // Second Moment (xx, xy, xz, yy, yz, zz)
@@ -108,6 +109,53 @@ static inline int assign_axis_1d(double xg, const int nmesh, const int method, i
     return 4;
   }
   throw std::runtime_error("method must be 1(NGP), 2(CIC), 3(TSC), or 4(PCS)");
+}
+
+template <typename T, typename OutT>
+static void deposit_scalar(const T *pos, const T *scalar, const T *mass, const Moments<OutT> &M, const int64_t n,
+                           const double lbox, const int nmesh, const int method, const int nthreads)
+{
+#ifdef _OPENMP
+  if(nthreads > 0) omp_set_num_threads(nthreads);
+#endif
+  const double inv_dx = (double)nmesh / lbox;
+
+  {
+    py::gil_scoped_release release;
+#pragma omp parallel for schedule(static)
+    for(int64_t ip = 0; ip < n; ip++) {
+      const double x = wrap_periodic(pos[3 * ip + 0], lbox);
+      const double y = wrap_periodic(pos[3 * ip + 1], lbox);
+      const double z = wrap_periodic(pos[3 * ip + 2], lbox);
+      const double m = (mass != nullptr) ? (double)mass[ip] : 1.0;
+
+      int idx_x[4], idx_y[4], idx_z[4];
+      double w_x[4], w_y[4], w_z[4];
+
+      const int nax = assign_axis_1d(x * inv_dx, nmesh, method, idx_x, w_x);
+      const int nay = assign_axis_1d(y * inv_dx, nmesh, method, idx_y, w_y);
+      const int naz = assign_axis_1d(z * inv_dx, nmesh, method, idx_z, w_z);
+      const double s = (double)scalar[ip];
+
+      for(int ix = 0; ix < nax; ix++) {
+        const double wx = w_x[ix];
+        for(int iy = 0; iy < nay; iy++) {
+          const double wy = w_y[iy];
+          for(int iz = 0; iz < naz; iz++) {
+            const double wz = w_z[iz];
+            const double ww = wx * wy * wz * m;
+            const int64_t idx =
+                (int64_t)idx_z[iz] + (int64_t)nmesh * ((int64_t)idx_y[iy] + (int64_t)nmesh * (int64_t)idx_x[ix]);
+
+#pragma omp atomic update
+            M.m0[idx] += (OutT)ww; // weighted density
+#pragma omp atomic update
+            M.s[idx] += (OutT)(ww * s); // weighted scalar
+          }
+        }
+      } // ix,iy,iz
+    } // particles loop
+  } // gil release
 }
 
 template <int ORDER, typename T, typename OutT>
@@ -230,6 +278,23 @@ static void deposit_moments(const T *pos, const T *vel, const T *mass, const Mom
       } // ix,iy,iz
     } // particles loop
   } // gil release
+}
+
+template <typename OutT>
+static void calc_scalar_field(Moments<OutT> &M, const int64_t size)
+{
+  py::gil_scoped_release release;
+#pragma omp parallel for schedule(static)
+  for(int64_t i = 0; i < size; i++) {
+    const OutT r = M.m0[i];
+
+    if(r > 0.0) {
+      const OutT inv = 1.0 / r;
+      M.s[i] *= inv;
+    } else {
+      M.s[i] = 0.0;
+    }
+  }
 }
 
 template <typename OutT>
@@ -551,7 +616,25 @@ static py::array_t<OutT> density_impl(const T *pos, const T *mass, const int64_t
 }
 
 template <typename T, typename OutT>
-static py::object velocity_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
+static py::array_t<OutT> scalar_impl(const T *pos, const T *scalar, const T *mass, const int64_t n, const double lbox,
+                                     const int nmesh, const int method, const int nthreads)
+{
+  const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
+  py::array_t<OutT> scalar_arr({nmesh, nmesh, nmesh});
+  OutT *scalar_ptr = static_cast<OutT *>(scalar_arr.request().ptr);
+  std::fill_n(scalar_ptr, size, static_cast<OutT>(0.0));
+  std::vector<OutT> rho(size, 0.0);
+
+  Moments<OutT> M;
+  M.m0 = rho.data(); // sum_w
+  M.s = scalar_ptr;  // sum_w * scalar
+  deposit_scalar(pos, scalar, mass, M, n, lbox, nmesh, method, nthreads);
+  calc_scalar_field(M, size); // s /= m0
+  return scalar_arr;
+}
+
+template <typename T, typename OutT>
+static py::array_t<OutT> velocity_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
                                 const int nmesh, const int method, const int nthreads)
 {
   const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
@@ -573,8 +656,8 @@ static py::object velocity_impl(const T *pos, const T *vel, const T *mass, const
 }
 
 template <typename T, typename OutT>
-static py::object velocity_norm_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
-                                     const int nmesh, const int method, const int nthreads)
+static py::array_t<OutT> velocity_norm_impl(const T *pos, const T *vel, const T *mass, const int64_t n,
+                                            const double lbox, const int nmesh, const int method, const int nthreads)
 {
   const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
   std::vector<OutT> rho(size, 0.0);
@@ -593,7 +676,7 @@ static py::object velocity_norm_impl(const T *pos, const T *vel, const T *mass, 
 }
 
 template <typename T, typename OutT>
-static py::object sigma_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
+static py::array_t<OutT> sigma_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
                              const int nmesh, const int method, const int nthreads)
 {
   const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
@@ -615,7 +698,7 @@ static py::object sigma_impl(const T *pos, const T *vel, const T *mass, const in
 }
 
 template <typename T, typename OutT>
-static py::object sigma_norm_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
+static py::array_t<OutT> sigma_norm_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
                                   const int nmesh, const int method, const int nthreads, int norm_mode)
 {
   const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
@@ -637,7 +720,7 @@ static py::object sigma_norm_impl(const T *pos, const T *vel, const T *mass, con
 }
 
 template <typename T, typename OutT>
-static py::object skewness_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
+static py::array_t<OutT> skewness_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
                                 const int nmesh, const int method, const int nthreads)
 {
   const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
@@ -665,8 +748,9 @@ static py::object skewness_impl(const T *pos, const T *vel, const T *mass, const
 }
 
 template <typename T, typename OutT>
-static py::object skewness_norm_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
-                                     const int nmesh, const int method, const int nthreads, int norm_mode)
+static py::array_t<OutT> skewness_norm_impl(const T *pos, const T *vel, const T *mass, const int64_t n,
+                                            const double lbox, const int nmesh, const int method, const int nthreads,
+                                            int norm_mode)
 {
   const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
   std::vector<OutT> rho(size, 0.0), mx(size, 0.0), my(size, 0.0), mz(size, 0.0);
@@ -690,7 +774,7 @@ static py::object skewness_norm_impl(const T *pos, const T *vel, const T *mass, 
 }
 
 template <typename T, typename OutT>
-static py::object kurtosis_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
+static py::array_t<OutT> kurtosis_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
                                 const int nmesh, const int method, const int nthreads)
 {
   const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
@@ -720,8 +804,9 @@ static py::object kurtosis_impl(const T *pos, const T *vel, const T *mass, const
 }
 
 template <typename T, typename OutT>
-static py::object kurtosis_norm_impl(const T *pos, const T *vel, const T *mass, const int64_t n, const double lbox,
-                                     const int nmesh, const int method, const int nthreads, int norm_mode)
+static py::array_t<OutT> kurtosis_norm_impl(const T *pos, const T *vel, const T *mass, const int64_t n,
+                                            const double lbox, const int nmesh, const int method, const int nthreads,
+                                            int norm_mode)
 {
   const int64_t size = static_cast<int64_t>(nmesh) * nmesh * nmesh;
   std::vector<OutT> rho(size, 0.0), mx(size, 0.0), my(size, 0.0), mz(size, 0.0);
