@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "mass-assignment"
-version = "1.0.3"
+version = "1.1.0"
 authors = [{ name = "Satoshi Tanaka" }]
 
 description = "Single-process mass assignment (NGP/CIC/TSC/PCS) with OpenMP"
@@ -17,6 +17,9 @@ license-files = ["LICENSE"]
 
 [tool.scikit-build]
 wheel.packages = ["mass_assignment"]
+
+[tool.scikit-build.sdist]
+exclude = ["tests/**"]
 
 
 [project.urls]

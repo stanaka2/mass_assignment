@@ -1,13 +1,34 @@
 try:
-    from importlib.metadata import version
+    from importlib.metadata import PackageNotFoundError, version
+
     __version__ = version("mass-assignment")
-except Exception:
+except PackageNotFoundError:
     __version__ = "unknown"
 
-from ._wrapper import dens, scalar, velc, sigma, skewness, kurtosis
-from ._wrapper import velc_norm, sigma_norm, skewness_norm, kurtosis_norm
-from ._wrapper import mesh_to_ptcl, mesh_diff
+from ._wrapper import (
+    MOMENT_COMPONENTS,
+    Grid,
+    central_moment,
+    dens,
+    kurtosis,
+    kurtosis_norm,
+    mesh_diff,
+    mesh_to_ptcl,
+    moment2,
+    moment3,
+    moment4,
+    moment_components,
+    scalar,
+    sigma,
+    sigma_norm,
+    skewness,
+    skewness_norm,
+    velc,
+    velc_norm,
+)
 
-__all__ = ["dens", "scalar", "velc", "sigma", "skewness", "kurtosis"]
-__all__ += ["velc_norm", "sigma_norm", "skewness_norm", "kurtosis_norm"]
-__all__ += ["mesh_to_ptcl", "mesh_diff"]
+__all__ = ["dens", "kurtosis", "scalar", "sigma", "skewness", "velc"]
+__all__ += ["kurtosis_norm", "sigma_norm", "skewness_norm", "velc_norm"]
+__all__ += ["mesh_diff", "mesh_to_ptcl"]
+__all__ += ["central_moment", "moment2", "moment3", "moment4", "moment_components"]
+__all__ += ["MOMENT_COMPONENTS", "Grid"]
